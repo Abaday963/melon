@@ -3,6 +3,153 @@
 
 const raw = [
   {
+    id: 'g-order',
+    group: 'Как строится фраза',
+    title: 'Порядок слов',
+    rule: 'По-русски слова можно переставлять, смысл останется. В английском порядок твёрдый: сначала кто, потом что делает, потом что или где. Именно порядок показывает смысл.',
+    rows: [
+      ['кто + действие + что', 'I play games.', 'Я играю в игры.'],
+      ['кто + действие + где', 'We live in Almaty.', 'Мы живём в Алматы.'],
+      ['нельзя: Games I play', 'She likes music.', 'Она любит музыку.'],
+    ],
+    tasks: [
+      ['___ every day.', 'I work', ['Work I', 'Every I'], 'Я работаю каждый день.', 'Сначала кто, потом действие.'],
+      ['She ___.', 'likes music', ['music likes', 'music like'], 'Она любит музыку.', 'Сначала действие, потом что именно.'],
+      ['We ___ Almaty.', 'live in', ['in live', 'Almaty in'], 'Мы живём в Алматы.', 'Действие, потом где.'],
+      ['He ___ every day.', 'plays games', ['games plays', 'every plays'], 'Он играет в игры каждый день.', 'Действие, потом что именно.'],
+      ['___ at work.', 'I am', ['Am I', 'At I'], 'Я на работе.', 'Сначала кто, потом связка.'],
+      ['They ___ now.', 'are here', ['here are', 'here now'], 'Они сейчас здесь.', 'Сначала are, потом где.'],
+      ['My friend ___.', 'has a car', ['a car has', 'car a has'], 'У моего друга есть машина.', 'Сначала действие, потом что.'],
+      ['___ like coffee.', 'I', ['Coffee', 'Like'], 'Я люблю кофе.', 'На первом месте тот, кто действует.'],
+    ],
+  },
+  {
+    id: 'g-questions',
+    group: 'Как строится фраза',
+    title: 'Почему в вопросе стоит do',
+    rule: 'По-русски вопрос задают голосом: «Ты играешь?». В английском вопрос показывают порядком слов: вперёд выходит слово-помощник. Если во фразе есть am, is, are, can или will, вперёд идут они. Если их нет, берём специального помощника do, does или did. Он не переводится.',
+    rows: [
+      ['am, is, are → вперёд', 'You are ready → Are you ready?', 'Ты готов(а)?'],
+      ['can, will → вперёд', 'You can help → Can you help?', 'Ты можешь помочь?'],
+      ['других нет → берём do', 'You play → Do you play?', 'Ты играешь?'],
+    ],
+    tasks: [
+      ['___ you ready?', 'Are', ['Do', 'Does'], 'Ты готов(а)?', 'Обычного глагола тут нет, нужна связка are, а не do.'],
+      ['___ you play games?', 'Do', ['Are', 'Is'], 'Ты играешь в игры?', 'Play — обычный глагол, поэтому помощник do.'],
+      ['___ you help me?', 'Can', ['Do', 'Are'], 'Ты можешь мне помочь?', 'Во фразе уже есть can, он и идёт вперёд.'],
+      ['___ she like music?', 'Does', ['Do', 'Is'], 'Она любит музыку?', 'Like — обычный глагол, а с she нужен does.'],
+      ['___ he at home?', 'Is', ['Does', 'Do'], 'Он дома?', 'Обычного глагола нет, нужна связка is.'],
+      ['___ you want to eat?', 'Do', ['Are', 'Is'], 'Хочешь есть?', 'Want — обычный глагол, поэтому do.'],
+      ['___ you come tomorrow?', 'Will', ['Do', 'Are'], 'Ты придёшь завтра?', 'Будущее время: вперёд идёт will.'],
+      ['___ they friends?', 'Are', ['Do', 'Does'], 'Они друзья?', 'Обычного глагола нет, нужна связка are.'],
+    ],
+  },
+  {
+    id: 'g-wh',
+    group: 'Как строится фраза',
+    title: 'Почему where стоит перед are',
+    rule: 'Слова where, what, when, why, who и how всегда стоят в самом начале. За ними идёт обычный вопрос, как будто этого слова нет. Поэтому: Are you…? превращается в Where are you?',
+    rows: [
+      ['Are you…? → Where are you?', 'Where are you?', 'Ты где?'],
+      ['Do you live…? → Where do you live?', 'Where do you live?', 'Где ты живёшь?'],
+      ['Did you go…? → Where did you go?', 'Where did you go?', 'Куда ты ходил(а)?'],
+    ],
+    tasks: [
+      ['___ are you?', 'Where', ['Are', 'Do'], 'Ты где?', 'Вопросительное слово всегда идёт первым.'],
+      ['Where ___ you live?', 'do', ['are', 'is'], 'Где ты живёшь?', 'Live — обычный глагол, поэтому после where идёт do.'],
+      ['What ___ your name?', 'is', ['do', 'are'], 'Как тебя зовут?', 'Name — это «оно», поэтому is.'],
+      ['When ___ you play?', 'do', ['are', 'is'], 'Когда ты играешь?', 'Play — обычный глагол, поэтому do.'],
+      ['Why ___ you here?', 'are', ['do', 'does'], 'Почему ты здесь?', 'Обычного глагола нет, поэтому are.'],
+      ['___ is this?', 'What', ['Is', 'Does'], 'Что это?', 'Вопросительное слово всегда идёт первым.'],
+      ['How ___ you?', 'are', ['do', 'is'], 'Как дела?', 'С you нужно are.'],
+      ['Where ___ he go?', 'did', ['is', 'was'], 'Куда он пошёл?', 'Go — обычный глагол в прошлом, поэтому did.'],
+    ],
+  },
+  {
+    id: 'g-to',
+    group: 'Как строится фраза',
+    title: 'Зачем нужно to',
+    rule: 'To ставится перед глаголом, когда один глагол идёт за другим: хочу играть — want to play. Если из разговора понятно, какое действие, глагол можно убрать, а to оставить: I don’t want to. Поэтому to иногда стоит в конце. После can и let’s to не нужно.',
+    rows: [
+      ['want to + действие', 'I want to play.', 'Я хочу поиграть.'],
+      ['need to, have to', 'I have to go.', 'Мне пора.'],
+      ['to в конце: действие понятно', "I don't want to.", 'Я не хочу (этого делать).'],
+    ],
+    tasks: [
+      ['I want ___ play.', 'to', ['for', 'at'], 'Я хочу поиграть.', 'Два глагола подряд соединяет to.'],
+      ['I need ___ go.', 'to', ['for', 'on'], 'Мне надо идти.', 'Два глагола подряд соединяет to.'],
+      ['I have ___ go.', 'to', ['for', 'at'], 'Мне пора.', 'Have to — «надо, должен».'],
+      ['I can ___ you.', 'help', ['to help', 'helps'], 'Я могу тебе помочь.', 'После can to не нужно.'],
+      ['Do you want ___ eat?', 'to', ['for', 'of'], 'Хочешь есть?', 'Два глагола подряд соединяет to.'],
+      ['Let’s ___.', 'play', ['to play', 'plays'], 'Давай играть.', 'После let’s to не нужно.'],
+      ['Go? I don’t want ___.', 'to', ['for', 'of'], 'Идти? Я не хочу.', 'Действие понятно, поэтому глагола нет, а to остаётся.'],
+      ['I want ___.', 'water', ['to water', 'for water'], 'Я хочу воды.', 'Вода — предмет. To нужно только перед действием.'],
+    ],
+  },
+  {
+    id: 'g-end-prep',
+    group: 'Как строится фраза',
+    title: 'Предлог в конце вопроса',
+    rule: 'Предлоги from, to, for, with и about в вопросах обычно уходят в самый конец. Это не ошибка, а норма. Русское «откуда» по-английски разбито на две части: Where… from?',
+    rows: [
+      ['Where + вопрос + from?', 'Where are you from?', 'Откуда ты?'],
+      ['Who + вопрос + to?', 'Who are you talking to?', 'С кем ты говоришь?'],
+      ['What + вопрос + about?', 'What are you talking about?', 'О чём ты говоришь?'],
+    ],
+    tasks: [
+      ['Where are you ___?', 'from', ['to', 'of'], 'Откуда ты?', 'Откуда — это where… from.'],
+      ['Who are you talking ___?', 'to', ['from', 'at'], 'С кем ты говоришь?', 'Talk to someone — говорить с кем-то.'],
+      ['What are you talking ___?', 'about', ['to', 'from'], 'О чём ты говоришь?', 'О чём — это what… about.'],
+      ['Who is this ___?', 'for', ['from', 'of'], 'Для кого это?', 'Для кого — это who… for.'],
+      ['What are you looking ___?', 'at', ['to', 'from'], 'На что ты смотришь?', 'Look at — смотреть на что-то.'],
+      ['Who do you live ___?', 'with', ['to', 'at'], 'С кем ты живёшь?', 'С кем — это who… with.'],
+      ['Where do you come ___?', 'from', ['to', 'at'], 'Откуда ты родом?', 'Откуда — это where… from.'],
+      ['What are you waiting ___?', 'for', ['to', 'at'], 'Чего ты ждёшь?', 'Wait for — ждать чего-то.'],
+    ],
+  },
+  {
+    id: 'g-can',
+    group: 'Как строится фраза',
+    title: 'Могу: can и can’t',
+    rule: 'Can значит «могу, умею». Глагол идёт сразу за ним, без to и без -s, даже с he и she. Не могу — can’t. Для вопроса can выходит вперёд.',
+    rows: [
+      ['can + глагол', 'I can help.', 'Я могу помочь.'],
+      ["can't + глагол", "He can't play.", 'Он не может играть.'],
+      ['Can + кто + глагол?', 'Can you hear me?', 'Ты меня слышишь?'],
+    ],
+    tasks: [
+      ['I can ___.', 'swim', ['to swim', 'swims'], 'Я умею плавать.', 'После can глагол сразу, без to.'],
+      ['She can ___ English.', 'speak', ['speaks', 'to speak'], 'Она говорит по-английски.', 'После can нет -s, даже с she.'],
+      ['___ you help me?', 'Can', ['Do', 'Are'], 'Ты можешь мне помочь?', 'В вопросе can идёт вперёд.'],
+      ['I ___ hear you.', "can't", ["don't can", "not can"], 'Я тебя не слышу.', "Отрицание: can't, без don't."],
+      ['He ___ come today.', "can't", ["doesn't can", "not can"], 'Он сегодня не может прийти.', "Отрицание: can't, без doesn't."],
+      ['Can I ___ here?', 'sit', ['to sit', 'sits'], 'Можно здесь сесть?', 'После can глагол сразу, без to.'],
+      ['We ___ win this.', 'can', ['are can', 'do can'], 'Мы можем это выиграть.', 'Can стоит один, без других помощников.'],
+      ['Can he ___?', 'play', ['plays', 'to play'], 'Он умеет играть?', 'После can нет -s.'],
+    ],
+  },
+  {
+    id: 'g-imperative',
+    group: 'Как строится фраза',
+    title: 'Команды и просьбы',
+    rule: 'Когда просишь или командуешь, начни сразу с глагола, слово «ты» не нужно. Запрет: don’t плюс глагол. Вежливее с please. Предложить вместе: let’s плюс глагол.',
+    rows: [
+      ['глагол сразу', 'Wait for me.', 'Подожди меня.'],
+      ["don't + глагол", "Don't worry.", 'Не волнуйся.'],
+      ["let's + глагол", "Let's go.", 'Пойдём.'],
+    ],
+    tasks: [
+      ['___ for me.', 'Wait', ['You wait', 'Waits'], 'Подожди меня.', 'В просьбе начинаем сразу с глагола.'],
+      ['___ me.', 'Follow', ['You follow', 'Follows'], 'За мной.', 'В команде начинаем сразу с глагола.'],
+      ['___ worry.', "Don't", ['Not', 'No'], 'Не волнуйся.', "Запрет: don't плюс глагол."],
+      ['Please ___ here.', 'stay', ['stays', 'to stay'], 'Останься здесь, пожалуйста.', 'В просьбе глагол в простой форме.'],
+      ['___ lie to me.', "Don't", ['No', 'Not'], 'Не ври мне.', "Запрет: don't плюс глагол."],
+      ['___ left.', 'Turn', ['Turning', 'You turn'], 'Поверни налево.', 'В команде начинаем сразу с глагола.'],
+      ['Don’t ___ late.', 'be', ['are', 'is'], 'Не опаздывай.', 'После don’t всегда простая форма: be.'],
+      ['Let’s ___ now.', 'go', ['to go', 'going'], 'Давай пойдём сейчас.', 'После let’s простая форма, без to.'],
+    ],
+  },
+  {
     id: 'g-be',
     group: 'Основа',
     title: 'Быть: am, is, are',
@@ -308,3 +455,29 @@ export const GRAMMAR = raw.map((topic) => ({
 }));
 
 export const GRAMMAR_GROUPS = [...new Set(GRAMMAR.map((topic) => topic.group))];
+
+export const topicById = (id) => GRAMMAR.find((topic) => topic.id === id);
+
+// Какое правило объясняет фразу. Порядок важен: сначала самые узнаваемые признаки.
+const RULE_PATTERNS = [
+  [/\b(going to|gonna)\b/i, 'g-going-to'],
+  [/\b(will|won't|i'll|you'll)\b/i, 'g-will'],
+  [/^did\b|\bdidn't\b/i, 'g-did'],
+  [/\b(was|wasn't|were|weren't)\b/i, 'g-was'],
+  [/\b(from|to|for|about|with|at)\?$/i, 'g-end-prep'],
+  [/\b(can|can't)\b/i, 'g-can'],
+  [/\b(want|need|have) to\b/i, 'g-to'],
+  [/^(what|where|when|why|who|how)\b/i, 'g-wh'],
+  [/\b(went|saw|had|ate|forgot|got|won|lost|fell|made|called|played|watched|worked|asked)\b/i, 'g-past'],
+  [/^don't\b|^(wait|follow|push|rotate|fall|stay|plant|defuse|save|turn|go|take|tell|come|use|kill|focus|back|attack|grab|watch|let|let's|never|touch|secure|add|run)\b/i, 'g-imperative'],
+  [/^(do|does)\b|\b(don't|doesn't|does not)\b/i, 'g-questions'],
+  [/\b(am|is|are|'m|'re|'s)\s+\w+ing\b/i, 'g-ing'],
+  [/^(is|are|am)\b|\b(isn't|aren't)\b|^(i'm|it's) not\b/i, 'g-be-q'],
+  [/\b(am|is|are)\b|^(i'm|you're|he's|she's|it's|we're|they're|that's)\b/i, 'g-be'],
+  [/^(i|you|we|they|he|she|it|nobody)\s+\w+/i, 'g-present'],
+];
+
+export function ruleFor(en) {
+  const text = String(en).replace(/[’`]/g, "'");
+  return RULE_PATTERNS.find(([pattern]) => pattern.test(text))?.[1] ?? null;
+}

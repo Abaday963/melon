@@ -1,12 +1,12 @@
 import { ALL_ITEMS, COURSE, UNITS } from './course.js';
 import { MEDIA, MEDIA_ITEMS, MEDIA_KINDS, sceneSearchUrl } from './media.js';
-import { GRAMMAR, GRAMMAR_GROUPS } from './grammar.js';
+import { GRAMMAR, GRAMMAR_GROUPS, ruleFor, topicById } from './grammar.js';
 import { WORD_LEVELS, layoutWords } from './games.js';
 import * as cloud from './cloud.js';
 import {
   BENCHMARKS, BLITZ_SECONDS, EXAM_SIZE, PASS_PERCENT, POINTS, buildBlitzStep, buildExamSteps, buildGrammarSteps,
   buildLessonSteps, buildPairs, buildReviewSteps, checkTyped, countWords, dayNumber, dueItems, levelInfo, monthWeeks,
-  neededToPass, normalize, shuffle, srsAnswer, streaks, weekKey,
+  neededToPass, normalize, shuffle, srsAnswer, streaks, weekKey, withAlternates,
 } from './core.js';
 
 const POOL = [...ALL_ITEMS, ...MEDIA_ITEMS];
@@ -195,6 +195,8 @@ let toastText = '';
 let toastTimer = 0;
 let installEvent = null;
 let sheetArg = null; // данные для окна снизу
+let appVersion = ''; // номер установленной версии
+let updateReady = false; // новая версия скачана, ждём удобного момента
 let game = null; // идущая мини-игра
 let lastAt = 0;
 let statsOpen = false;
@@ -359,6 +361,7 @@ function meScreen() {
     <button class="btn ghost" data-act="backup">Сохранить код</button>
     <button class="btn ghost" data-act="restore">Вставить код</button>
     <button class="btn ghost" data-act="reset" style="color:var(--bad)">Сбросить всё</button>
+    <div class="version"><span>${appVersion ? `Версия ${appVersion}` : ''}</span><button class="link-btn" data-act="check-update">Проверить обновление</button></div>
   </section>${tabsBar()}`;
 }
 
@@ -717,10 +720,21 @@ function openWordGame() {
     path: [],
     gesture: null,
     finished: null,
+    pin: null,
   };
+  if (level && progress.last) {
+    const remembered = level.words.find((entry) => entry.en === progress.last);
+    if (remembered) pinWord(game.layout.words.find((entry) => entry.en === progress.last) ?? remembered);
+  }
   lastAt = Date.now();
   history.pushState({ game: true }, '');
   render();
+}
+
+function pinWord(entry) {
+  game.pin = { en: entry.en, ru: entry.ru, cells: entry.cells ?? [] };
+  state.wordGame.last = entry.en;
+  save();
 }
 
 function wordVisibleCells() {
@@ -738,7 +752,7 @@ function wordsGameScreen() {
       <button class="btn" data-act="game-close">Назад</button></section>`;
   }
   const { layout, level, order } = game;
-  const size = Math.floor(Math.min((app.clientWidth - 24) / layout.width, (app.clientHeight - 410) / layout.height, 44));
+  const size = Math.floor(Math.min((app.clientWidth - 24) / layout.width, (app.clientHeight - 470) / layout.height, 44));
   const visible = wordVisibleCells();
   const cells = [];
   for (let y = 0; y < layout.height; y++) {
@@ -746,7 +760,8 @@ function wordsGameScreen() {
       const spot = `${x + layout.minX},${y + layout.minY}`;
       const letter = layout.grid.get(spot);
       if (!letter) cells.push('<span></span>');
-      else cells.push(`<span class="cw-cell ${visible.has(spot) ? 'on' : ''}">${visible.has(spot) ? esc(letter.toUpperCase()) : ''}</span>`);
+      else if (visible.has(spot)) cells.push(`<button class="cw-cell on ${game.pin?.cells.includes(spot) ? 'pinned' : ''}" data-act="cw-tap" data-cell="${spot}" aria-label="Перевод слова с буквой ${esc(letter)}">${esc(letter.toUpperCase())}</button>`);
+      else cells.push('<span class="cw-cell"></span>');
     }
   }
   const letters = order.map((letter, i) => {
@@ -764,7 +779,10 @@ function wordsGameScreen() {
   const bonusLeft = layout.bonus.length;
   return `<section class="game">
     <header class="game-top"><button class="icon-btn" data-act="game-close" aria-label="Назад">${ICON.back}</button>
-      <b>Уровень ${level.id}</b>${seeds(state.xp)}</header>
+      <b>Уровень ${level.id} из ${WORD_LEVELS.length}</b>${seeds(state.xp)}</header>
+    <div class="cw-pin">${game.pin
+      ? `<div class="cw-pin-text"><b>${esc(game.pin.en)}</b><span>${esc(game.pin.ru)}</span></div>${sayBtn(game.pin.en)}`
+      : '<span class="muted small">Нажми на готовое слово в сетке, и здесь появится перевод</span>'}</div>
     <div class="cw-area"><div class="cw" style="grid-template-columns:repeat(${layout.width},${size}px);grid-auto-rows:${size}px;font-size:${Math.round(size * 0.55)}px">${cells.join('')}</div></div>
     <div class="cw-line"><span id="cwcurrent" class="cw-current"></span>
       <span id="cwtap" class="cw-tap" hidden><button class="link-btn" data-act="word-submit">Проверить</button><button class="link-btn" data-act="word-clear">Стереть</button></span>
@@ -813,8 +831,10 @@ function submitWord() {
   if (!text) return;
   tick();
   const progress = state.wordGame;
-  const { layout, level } = game;
+  const { layout } = game;
   if (progress.found.includes(text) || progress.bonus.includes(text)) {
+    const known = [...layout.words, ...layout.bonus].find((entry) => entry.en === text);
+    if (known) pinWord(known);
     showToast('Это слово уже есть');
     return;
   }
@@ -825,21 +845,21 @@ function submitWord() {
     addXp(POINTS.wordFound);
     recordDay('right', 1);
     if (soundOn()) speak(text);
+    pinWord(inGrid);
     checkWordLevel();
-    if (!game.finished) showToast(`${inGrid.en}: ${inGrid.ru}`);
   } else if (inBonus) {
     progress.bonus.push(text);
     addXp(POINTS.wordBonus);
     recordDay('right', 1);
     if (soundOn()) speak(text);
-    showToast(`Бонус! ${inBonus.en}: ${inBonus.ru}`);
+    pinWord(inBonus);
+    showToast('Бонусное слово!');
   } else {
     recordDay('wrong', 1);
     showToast(`${text.length < 2 ? 'Нужно хотя бы две буквы' : 'Такого слова в этом уровне нет'}`);
   }
   save();
   render();
-  void level;
 }
 
 function checkWordLevel() {
@@ -919,7 +939,8 @@ function startLesson(id) {
     startRun({ type: 'lesson', lesson, steps: [], replay, restore: state.saved[id] });
     return;
   }
-  const steps = lesson.grammar ? buildGrammarSteps(lesson) : buildLessonSteps(lesson, POOL);
+  // В обычные уроки не подмешиваем фразы из мемов и кино как неверные варианты.
+  const steps = lesson.grammar ? buildGrammarSteps(lesson) : buildLessonSteps(lesson, lesson.media ? POOL : ALL_ITEMS);
   startRun({ type: 'lesson', lesson, steps, replay });
 }
 
@@ -930,7 +951,7 @@ function startExam(unit) {
     return;
   }
   const items = UNITS[unit].lessons.flatMap((lesson) => lesson.items);
-  startRun({ type: 'exam', unit, steps: buildExamSteps(items, POOL) });
+  startRun({ type: 'exam', unit, steps: buildExamSteps(items, ALL_ITEMS) });
 }
 
 function blitzItems() {
@@ -1041,7 +1062,7 @@ function answer(correct, extra = {}) {
     run.queue.push(step);
     run.total++;
   }
-  run.feedback = { correct, ...extra };
+  run.feedback = { correct, first, ...extra };
   saveRunState();
   save();
   render();
@@ -1132,6 +1153,12 @@ function finishRun() {
   refreshCloud();
 }
 
+function ruleButton(id) {
+  const topic = id && topicById(id);
+  if (!topic) return '';
+  return `<button class="rule-link" data-act="rule" data-id="${topic.id}">Почему так: ${esc(topic.title)}</button>`;
+}
+
 function stepBody(step) {
   const locked = Boolean(run.feedback);
   const optionClass = (isRight, isChosen) => (!locked ? '' : isRight ? 'right' : isChosen ? 'wrong' : '');
@@ -1162,6 +1189,7 @@ function stepBody(step) {
     return `<div class="intro"><div class="tag">Новая фраза</div>
       <div class="phrase">${esc(item.en)}</div>${pron(item)}<div class="ru">${esc(item.ru)}</div>
       ${item.note ? `<div class="note">${esc(item.note)}</div>` : ''}
+      ${ruleButton(ruleFor(item.en))}
       <div class="say-row">${sayBtn(item.en)}</div></div>`;
   }
   if (step.kind === 'pickRu' || step.kind === 'pickEn' || step.kind === 'listen') {
@@ -1220,24 +1248,29 @@ function typeInput(locked) {
 
 function dock(step) {
   if (run.type === 'blitz') return '';
+  const dunno = run.type === 'lesson' || run.type === 'review' ? '<button class="dunno" data-act="dunno">Не знаю</button>' : '';
   if (run.feedback) {
     const f = run.feedback;
     const target = targetOf(step);
     const fix = f.correct
       ? (f.typo ? `<div class="fix">${esc(f.match)}</div><div class="why">Почти! Посмотри, как пишется.</div>` : `<div class="why">${esc(target.en)}</div>`)
-      : `<div class="fix">${esc(target.en)}</div>${state.settings.pron && target.pron ? `<div class="pron">${esc(target.pron)}</div>` : ''}
+      : `${f.given ? `<div class="why">Твой ответ: ${esc(f.given)}</div>` : ''}
+         <div class="fix">${esc(target.en)}</div>${state.settings.pron && target.pron ? `<div class="pron">${esc(target.pron)}</div>` : ''}
          ${step.kind === 'dialog' ? '' : `<div class="why">${esc(target.ru)}</div>`}${f.why ? `<div class="why">${esc(f.why)}</div>` : ''}`;
-    return `<div class="feedback ${f.correct ? 'ok' : 'no'}"><h3>${f.correct ? 'Верно!' : 'Правильно так:'}</h3>${fix}
+    const help = f.correct || run.type === 'exam' ? '' : ruleButton(step.topic ?? ruleFor(target.en));
+    const dispute = !f.correct && f.given && f.first && run.type !== 'exam' && step.kind !== 'gap'
+      ? '<button class="post-act dispute" data-act="my-answer-ok">Мой ответ тоже верный</button>' : '';
+    return `<div class="feedback ${f.correct ? 'ok' : 'no'}"><h3>${f.correct ? 'Верно!' : f.dontKnow ? 'Вот как правильно:' : 'Правильно так:'}</h3>${fix}${help}${dispute}
       <button class="btn ${f.correct ? '' : 'bad'}" data-act="next">Дальше</button></div>`;
   }
   if (step.kind === 'tip' || step.kind === 'rule') return '<div class="dock"><button class="btn" data-act="next">Понятно</button></div>';
   if (step.kind === 'speak') return '<div class="dock"><button class="btn" data-act="speak-done">Сказал(а)</button><button class="btn ghost" data-act="speak-skip">Не могу сейчас говорить</button></div>';
   if (step.kind === 'intro') return '<div class="dock"><button class="btn" data-act="next">Дальше</button></div>';
-  if (step.kind === 'build') return `<div class="dock"><button class="btn" data-act="check-build" ${run.picked.length ? '' : 'disabled'}>Проверить</button></div>`;
+  if (step.kind === 'build') return `<div class="dock"><button class="btn" data-act="check-build" ${run.picked.length ? '' : 'disabled'}>Проверить</button>${dunno}</div>`;
   if (step.kind === 'type' || ((step.kind === 'dialog' || step.kind === 'gap') && !step.options)) {
-    return '<div class="dock"><button class="btn" data-act="check-type" id="check-type" disabled>Проверить</button></div>';
+    return `<div class="dock"><button class="btn" data-act="check-type" id="check-type" disabled>Проверить</button>${dunno}</div>`;
   }
-  return '<div class="dock" style="padding-top:0"></div>';
+  return `<div class="dock" style="padding-top:0">${dunno}</div>`;
 }
 
 function lessonScreen() {
@@ -1297,6 +1330,13 @@ function sheetView() {
       <button class="btn" data-act="exam-go" data-unit="${sheetArg}">${state.saved[`exam-${sheetArg}`] ? 'Продолжить тест' : 'Начать тест'}</button>
       ${state.saved[`exam-${sheetArg}`] ? `<button class="btn ghost" data-act="exam-restart" data-unit="${sheetArg}">Начать заново</button>` : ''}
       <button class="btn ghost" data-act="sheet-close">Не сейчас</button></div></div>`;
+  }
+  if (sheet === 'rule') {
+    const topic = topicById(sheetArg);
+    const rows = topic.rows.map(([formula, example, ru]) => `<div class="rule-row"><code>${esc(formula)}</code><b>${esc(example)}</b><span>${esc(ru)}</span></div>`).join('');
+    return `<div class="veil"><div class="sheet rule-sheet"><h2>${esc(topic.title)}</h2><p>${esc(topic.rule)}</p>${rows}
+      <p class="muted small" style="margin-top:12px">Потренировать это правило можно в разделе «Курс → Грамматика».</p>
+      <button class="btn" data-act="sheet-close">Понятно</button></div></div>`;
   }
   if (sheet === 'friend-remove') {
     return `<div class="veil"><div class="sheet"><h2>Убрать ${esc(sheetArg)}?</h2><p>Вы исчезнете из рейтинга друг у друга.</p>
@@ -1463,6 +1503,63 @@ async function enterAccount(answer) {
 // ---------- Действия ----------
 
 const actions = {
+  rule(el) {
+    sheet = 'rule';
+    sheetArg = el.dataset.id;
+    render();
+  },
+  dunno() {
+    const step = current();
+    if (!step || run.feedback) return;
+    run.chosen = null;
+    answer(false, { dontKnow: true, why: step.why });
+  },
+  // Сверить все верные варианты невозможно, поэтому последнее слово за учеником. В тесте кнопки нет.
+  'my-answer-ok'() {
+    const step = current();
+    const at = run.queue.lastIndexOf(step);
+    if (at > run.i) {
+      run.queue.splice(at, 1);
+      run.total--;
+    }
+    step.retried = false;
+    run.firstTryRight++;
+    const points = pointsPerAnswer();
+    run.gained += points;
+    addXp(points);
+    recordDay('wrong', -1);
+    recordDay('right', 1);
+    if (run.type === 'review') state.srs[step.item.en] = srsAnswer({ box: 1 }, true);
+    run.feedback = { correct: true, first: false };
+    saveRunState();
+    save();
+    render();
+  },
+  'cw-tap'(el) {
+    const { found } = state.wordGame;
+    const words = game.layout.words.filter((entry) => found.includes(entry.en) && entry.cells.includes(el.dataset.cell));
+    if (!words.length) {
+      showToast('Это слово ещё не собрано');
+      return;
+    }
+    const at = words.findIndex((entry) => entry.en === game.pin?.en);
+    pinWord(words[(at + 1) % words.length]);
+    if (soundOn()) speak(game.pin.en);
+    render();
+  },
+  async 'check-update'() {
+    if (!navigator.onLine) {
+      showToast('Для проверки нужен интернет');
+      return;
+    }
+    try {
+      const registration = await navigator.serviceWorker.getRegistration();
+      await registration.update();
+      showToast(registration.installing || registration.waiting ? 'Скачиваю новую версию' : 'Это последняя версия');
+    } catch {
+      showToast('Не получилось проверить');
+    }
+  },
   stats() {
     statsOpen = true;
     const now = pad(dayNumber());
@@ -1738,6 +1835,7 @@ const actions = {
     statsOpen = false;
     mediaOpen = null;
     videoOn = false;
+    if (applyUpdate()) return;
     render();
     app.querySelector('.screen')?.scrollTo(0, 0);
     if (tab === 'friends') {
@@ -1750,6 +1848,7 @@ const actions = {
   home() {
     result = null;
     tab = 'path';
+    if (applyUpdate()) return;
     render();
   },
   say(el) { speak(el.dataset.text, Number(el.dataset.rate) || 0.9); },
@@ -1924,9 +2023,9 @@ function checkTypedAnswer() {
     answer(right, right ? {} : { why: step.why });
     return;
   }
-  const accepted = step.kind === 'dialog' ? [step.turn.en] : step.accepted;
+  const accepted = step.kind === 'dialog' ? withAlternates(step.turn.en) : step.accepted;
   const verdict = checkTyped(input.value, accepted);
-  answer(verdict.result !== 'wrong', { typo: verdict.result === 'typo', match: verdict.match });
+  answer(verdict.result !== 'wrong', { typo: verdict.result === 'typo', match: verdict.match, given: input.value.trim() });
 }
 
 app.addEventListener('click', (event) => {
@@ -2037,8 +2136,45 @@ window.visualViewport?.addEventListener('resize', () => {
   window.scrollTo(0, 0);
 });
 
+// Перезагрузка на новую версию только в свободный момент: не посреди урока, игры, ввода или клипа.
+function applyUpdate() {
+  if (!updateReady || run || game || sheet || result || videoOn) return false;
+  if (document.activeElement?.matches?.('input, textarea')) return false;
+  location.reload();
+  return true;
+}
+
+let lastUpdateCheck = 0;
+
+// На iPhone свёрнутое приложение не перезапускается, поэтому проверяем и при возвращении в него.
+function checkForUpdate() {
+  if (Date.now() - lastUpdateCheck < 60000) return;
+  lastUpdateCheck = Date.now();
+  navigator.serviceWorker.getRegistration().then((registration) => registration?.update()).catch(() => {});
+}
+
+async function readVersion() {
+  const keys = await caches.keys();
+  const numbers = keys.map((key) => Number(key.match(/^melon-v(\d+)$/)?.[1])).filter(Boolean);
+  if (!numbers.length) return;
+  appVersion = String(Math.max(...numbers));
+  renderIfIdle();
+}
+
 if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.register('sw.js').catch(() => {});
+  const hadWorker = Boolean(navigator.serviceWorker.controller);
+  navigator.serviceWorker.register('sw.js').then(readVersion).catch(() => {});
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    readVersion();
+    if (!hadWorker) return; // первая установка, показывать нечего
+    updateReady = true;
+    applyUpdate();
+  });
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState !== 'visible') return;
+    if (!applyUpdate()) checkForUpdate();
+  });
+  checkForUpdate();
 }
 navigator.storage?.persist?.();
 addEventListener('online', refreshCloud);

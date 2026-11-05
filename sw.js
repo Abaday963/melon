@@ -1,6 +1,6 @@
 // Хранит всё приложение на телефоне, чтобы оно открывалось без интернета.
 // После любого изменения файлов увеличь VERSION, иначе телефоны не получат обновление.
-const VERSION = 'melon-v4';
+const VERSION = 'melon-v9';
 const FILES = [
   './',
   './index.html',
@@ -11,6 +11,7 @@ const FILES = [
   './js/course.js',
   './js/media.js',
   './js/grammar.js',
+  './js/alternates.js',
   './js/games.js',
   './js/cloud.js',
   './js/config.js',
@@ -24,7 +25,8 @@ const FILES = [
 self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(VERSION)
-      .then((cache) => cache.addAll(FILES))
+      // reload: брать файлы с сайта, а не из кэша браузера, иначе в новую версию попадут старые.
+      .then((cache) => cache.addAll(FILES.map((file) => new Request(file, { cache: 'reload' }))))
       .then(() => self.skipWaiting()),
   );
 });

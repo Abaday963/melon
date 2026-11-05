@@ -2,12 +2,13 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { ALL_ITEMS, COURSE } from '../js/course.js';
 import { MEDIA, MEDIA_ITEMS } from '../js/media.js';
-import { GRAMMAR } from '../js/grammar.js';
+import { GRAMMAR, ruleFor, topicById } from '../js/grammar.js';
+import { ALTERNATES } from '../js/alternates.js';
 import { WORD_LEVELS, canBuild, layoutWords } from '../js/games.js';
 import {
   BENCHMARKS, EXAM_SIZE, buildBlitzStep, buildExamSteps, buildGrammarSteps, buildLessonSteps, buildPairs,
-  buildReviewSteps, checkTyped, countWords, dueItems, levelInfo, monthWeeks, neededToPass, normalize, srsAnswer,
-  streaks, tilesOf, weekKey,
+  acceptedFor, buildReviewSteps, checkTyped, countWords, dueItems, levelInfo, monthWeeks, neededToPass, normalize,
+  srsAnswer, streaks, tilesOf, weekKey, withAlternates,
 } from '../js/core.js';
 
 const POOL = [...ALL_ITEMS, ...MEDIA_ITEMS];
@@ -84,7 +85,9 @@ test('сокращения, регистр и знаки препинания н
   assert.equal(checkTyped("i am good", ["I'm good."]).result, 'exact');
   assert.equal(checkTyped('I’M GOOD!', ["I'm good."]).result, 'exact');
   assert.equal(checkTyped('do not know', ["don't know"]).result, 'exact');
-  assert.equal(checkTyped('cant hear you', ["can't hear you"]).result, 'wrong');
+  assert.equal(checkTyped('cant hear you', ["can't hear you"]).result, 'exact');
+  assert.equal(checkTyped('im good', ["I'm good."]).result, 'exact');
+  assert.equal(checkTyped('where are you from', ['Where are you from?']).result, 'exact');
 });
 
 test('мелкая опечатка прощается, а другое слово — нет', () => {
@@ -315,4 +318,100 @@ test('серии дней: сегодняшний пропуск ещё не о�
   assert.deepEqual(streaks([98, 99, 100], 100), { current: 3, best: 3 });
   assert.deepEqual(streaks([98, 99], 100), { current: 2, best: 2 });
   assert.deepEqual(streaks([90, 91, 92, 93, 98], 100), { current: 0, best: 4 });
+});
+
+const itemByEn = (en) => POOL.find((item) => item.en === en);
+
+test('жалобы друга: синонимы и отсутствие знака вопроса засчитываются', () => {
+  const ok = (given, en) => assert.equal(checkTyped(given, acceptedFor(itemByEn(en), POOL)).result, 'exact', given);
+  ok('what is it', 'What is this?');
+  ok('What is it?', 'What is this?');
+  ok('whats that', 'What is this?');
+  ok('do you hear me', 'Can you hear me?');
+  ok('can you hear me', 'Can you hear me?');
+  ok('what is the price', 'How much is it?');
+  ok('no worries', 'No problem.');
+});
+
+test('синонимы не принимают чужие ответы', () => {
+  const no = (given, en) => assert.equal(checkTyped(given, acceptedFor(itemByEn(en), POOL)).result, 'wrong', given);
+  no('do you see me', 'Can you hear me?');
+  no('what is your name', 'What is this?');
+  no('i am tired', "I'm good.");
+});
+
+test('список синонимов: ключи существуют и не повторяют сам ответ', () => {
+  const dialogs = [...COURSE, ...MEDIA].flatMap((lesson) => lesson.dialog).filter((turn) => turn.who === 'me').map((turn) => turn.en);
+  const known = new Set([...POOL.map((item) => item.en), ...dialogs]);
+  for (const [en, others] of Object.entries(ALTERNATES)) {
+    assert.ok(known.has(en), `нет такой фразы: ${en}`);
+    assert.ok(others.length, en);
+    for (const other of others) assert.notEqual(normalize(other), normalize(en), `${en}: ${other}`);
+  }
+  assert.ok(withAlternates('What is this?').includes('What is it?'));
+});
+
+test('варианты ответа похожи на верный: вопрос среди вопросов, слово среди слов', () => {
+  const isQuestion = (item) => item.en.endsWith('?');
+  const words = (item) => item.en.split(' ').length;
+  for (const lesson of [...COURSE, ...MEDIA]) {
+    for (let seed = 1; seed <= 12; seed++) {
+      for (const step of buildLessonSteps(lesson, POOL, seeded(seed))) {
+        if (!step.options || !step.item) continue;
+        for (const option of step.options) {
+          assert.equal(isQuestion(option), isQuestion(step.item), `${step.item.en} / ${option.en}`);
+          if (words(step.item) === 1 && !isQuestion(step.item)) assert.equal(words(option), 1, `${step.item.en} / ${option.en}`);
+          if (words(step.item) > 1) assert.ok(words(option) > 1, `${step.item.en} / ${option.en}`);
+          assert.ok(Math.abs(words(option) - words(step.item)) <= 3, `${step.item.en} / ${option.en}`);
+        }
+      }
+    }
+  }
+});
+
+test('среди вариантов к числу только числа', () => {
+  const lesson = COURSE.find((l) => l.title === 'Числа 1–5');
+  const numbers = /^(One|Two|Three|Four|Five|Six|Seven|Eight|Nine|Ten)$/;
+  for (let seed = 1; seed <= 10; seed++) {
+    for (const step of buildLessonSteps(lesson, POOL, seeded(seed))) {
+      if (step.options && step.item) assert.ok(step.options.every((o) => numbers.test(o.en)), step.item.en);
+    }
+  }
+});
+
+test('новые темы объясняют то, о чём спрашивал друг', () => {
+  for (const id of ['g-order', 'g-questions', 'g-wh', 'g-to', 'g-end-prep', 'g-can', 'g-imperative']) assert.ok(topicById(id), id);
+  assert.equal(GRAMMAR[0].group, 'Как строится фраза');
+  assert.ok(topicById('g-questions').rule.includes('do'));
+  assert.ok(topicById('g-wh').title.includes('where'));
+});
+
+test('правило к фразе: примеры и полный охват', () => {
+  assert.equal(ruleFor('Do you like it?'), 'g-questions');
+  assert.equal(ruleFor('Where are you?'), 'g-wh');
+  assert.equal(ruleFor('Where are you from?'), 'g-end-prep');
+  assert.equal(ruleFor("I don't want to."), 'g-to');
+  assert.equal(ruleFor('Can you hear me?'), 'g-can');
+  assert.equal(ruleFor('I went home.'), 'g-past');
+  assert.equal(ruleFor('Did you play?'), 'g-did');
+  assert.equal(ruleFor('I was at home.'), 'g-was');
+  assert.equal(ruleFor('Wait for me.'), 'g-imperative');
+  assert.equal(ruleFor("Don't worry."), 'g-imperative');
+  assert.equal(ruleFor("I'm going to play tonight."), 'g-going-to');
+  assert.equal(ruleFor('She is nice.'), 'g-be');
+  assert.equal(ruleFor('Hello'), null);
+  const sentences = POOL.filter((item) => item.en.split(' ').length >= 3);
+  const covered = sentences.filter((item) => ruleFor(item.en));
+  assert.ok(covered.length / sentences.length > 0.85, `покрыто ${covered.length} из ${sentences.length}`);
+  for (const item of POOL) {
+    const id = ruleFor(item.en);
+    if (id) assert.ok(topicById(id), `${item.en}: ${id}`);
+  }
+});
+
+test('игра «Слова»: больше 30 уровней, у всех слов есть перевод', () => {
+  assert.ok(WORD_LEVELS.length >= 150, `уровней ${WORD_LEVELS.length}`);
+  assert.equal(new Set(WORD_LEVELS.map((level) => level.letters)).size, WORD_LEVELS.length, 'повтор уровня');
+  assert.deepEqual(WORD_LEVELS.slice(0, 2).map((level) => level.letters), ['CAT', 'DOG']);
+  assert.deepEqual(WORD_LEVELS.map((level) => level.id), WORD_LEVELS.map((_, i) => i + 1));
 });

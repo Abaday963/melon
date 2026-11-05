@@ -1,4 +1,5 @@
 // Логика без интерфейса: проверка ответов, сборка уроков, очки, повторение.
+import { ALTERNATES } from './alternates.js';
 
 const CONTRACTIONS = {
   "i'm": 'i am', "you're": 'you are', "he's": 'he is', "she's": 'she is', "it's": 'it is',
@@ -7,7 +8,12 @@ const CONTRACTIONS = {
   "don't": 'do not', "doesn't": 'does not', "didn't": 'did not', "isn't": 'is not',
   "aren't": 'are not', "wasn't": 'was not', "weren't": 'were not', "haven't": 'have not',
   "can't": 'can not', cannot: 'can not', "won't": 'will not', "i'll": 'i will', "i'd": 'i would',
-  "i've": 'i have', gonna: 'going to',
+  "i've": 'i have', gonna: 'going to', wanna: 'want to', gotta: 'have to',
+  // Без апострофа тоже считается: на телефоне его часто не ставят.
+  im: 'i am', youre: 'you are', hes: 'he is', shes: 'she is', theyre: 'they are', thats: 'that is', whats: 'what is',
+  wheres: 'where is', hows: 'how is', whos: 'who is', lets: 'let us', dont: 'do not', doesnt: 'does not',
+  didnt: 'did not', isnt: 'is not', arent: 'are not', wasnt: 'was not', werent: 'were not', havent: 'have not',
+  cant: 'can not', wont: 'will not', ive: 'i have',
 };
 
 export function normalize(text) {
@@ -122,15 +128,42 @@ export function tilesOf(en) {
 }
 
 // Все английские варианты с тем же переводом тоже верные: «Привет» — и Hi, и Hello.
+export function withAlternates(en) {
+  return [en, ...(ALTERNATES[en] ?? [])];
+}
+
 export function acceptedFor(item, pool) {
-  return pool.filter((other) => other.ru === item.ru).map((other) => other.en);
+  const same = pool.filter((other) => other.ru === item.ru).map((other) => other.en);
+  return [...new Set([...same, ...withAlternates(item.en)])];
+}
+
+// Форма фразы: чтобы неверные варианты не выдавали верный.
+// Вопрос — среди вопросов, предложение — среди предложений, число — среди чисел.
+const NUMBERS = /^(one|two|three|four|five|six|seven|eight|nine|ten)$/i;
+
+function shapeDistance(a, b) {
+  const words = (x) => x.en.split(' ').length;
+  const isQuestion = (x) => x.en.endsWith('?');
+  const isNumber = (x) => NUMBERS.test(x.en);
+  let distance = Math.abs(words(a) - words(b));
+  if (isQuestion(a) !== isQuestion(b)) distance += 100;
+  if ((words(a) === 1) !== (words(b) === 1)) distance += 50;
+  if (isNumber(a) !== isNumber(b)) distance += 8;
+  return distance;
 }
 
 function distractors(item, near, pool, count, rng) {
   const out = [];
   const taken = new Set([item.ru]);
   const takenEn = new Set([normalize(item.en)]);
-  for (const other of [...shuffle(near, rng), ...shuffle(pool, rng)]) {
+  const nearby = new Set(near.map((other) => other.en));
+  // Ближе к началу — похожие по форме; при равенстве фразы из этого же урока. Случайность меняет набор.
+  const score = (other) => shapeDistance(item, other) + (nearby.has(other.en) ? -2 : 0) + rng() * 1.5;
+  const ranked = [...near, ...pool]
+    .map((other) => ({ other, order: score(other) }))
+    .sort((a, b) => a.order - b.order)
+    .map(({ other }) => other);
+  for (const other of ranked) {
     if (out.length === count) break;
     if (taken.has(other.ru) || takenEn.has(normalize(other.en))) continue;
     taken.add(other.ru);
@@ -283,6 +316,7 @@ export function buildGrammarSteps(topic, rng = Math.random) {
     { kind: 'rule', title: topic.title, text: topic.rule, rows: topic.rows },
     ...tasks.map((task, i) => ({
       kind: 'gap',
+      topic: topic.id,
       item: { en: task.text.replace('___', task.answer), ru: task.ru, pron: '' },
       text: task.text,
       answer: task.answer,
