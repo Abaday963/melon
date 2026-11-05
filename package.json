@@ -1,0 +1,8 @@
+{
+  "name": "melon",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test tests/course.test.js"
+  }
+}
