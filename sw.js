@@ -1,6 +1,6 @@
 // Хранит всё приложение на телефоне, чтобы оно открывалось без интернета.
 // После любого изменения файлов увеличь VERSION, иначе телефоны не получат обновление.
-const VERSION = 'melon-v2';
+const VERSION = 'melon-v4';
 const FILES = [
   './',
   './index.html',
@@ -9,6 +9,11 @@ const FILES = [
   './js/app.js',
   './js/core.js',
   './js/course.js',
+  './js/media.js',
+  './js/grammar.js',
+  './js/games.js',
+  './js/cloud.js',
+  './js/config.js',
   './icons/apple-touch-icon.png',
   './icons/favicon.png',
   './icons/icon-192.png',
@@ -33,7 +38,7 @@ self.addEventListener('activate', (event) => {
 });
 
 self.addEventListener('fetch', (event) => {
-  if (event.request.method !== 'GET') return;
+  if (event.request.method !== 'GET' || !event.request.url.startsWith(self.location.origin)) return;
   event.respondWith(
     caches.match(event.request, { ignoreSearch: true }).then((hit) => {
       if (hit) return hit;

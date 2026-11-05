@@ -7,6 +7,7 @@ const CONTRACTIONS = {
   "don't": 'do not', "doesn't": 'does not', "didn't": 'did not', "isn't": 'is not',
   "aren't": 'are not', "wasn't": 'was not', "weren't": 'were not', "haven't": 'have not',
   "can't": 'can not', cannot: 'can not', "won't": 'will not', "i'll": 'i will', "i'd": 'i would',
+  "i've": 'i have', gonna: 'going to',
 };
 
 export function normalize(text) {
@@ -70,7 +71,10 @@ export function shuffle(list, rng = Math.random) {
 
 // ---------- Очки и уровни ----------
 
-export const POINTS = { correct: 5, review: 3, lesson: 20, perfect: 10 };
+export const POINTS = {
+  correct: 5, repeat: 1, review: 3, lesson: 20, perfect: 10, skippedLesson: 30, blitz: 1,
+  wordFound: 3, wordBonus: 1, wordLevel: 10, pair: 1,
+};
 
 // До уровня 2 нужно 100 семечек, до уровня 3 ещё 200, до уровня 4 ещё 300.
 export function levelInfo(xp) {
@@ -108,7 +112,7 @@ export function dueItems(srs, items, today = dayNumber()) {
 
 // ---------- Сборка упражнений ----------
 
-const KEEP_CASE = /^(I|I'm|I'd|I'll|A|B|English|Alex|Almaty|Kazakhstan)$/;
+const KEEP_CASE = /^(I|I'm|I'd|I'll|I've|A|B|English|Alex|Almaty|Kazakhstan|Houston)$/;
 
 export function tilesOf(en) {
   return en
@@ -191,6 +195,10 @@ export function buildLessonSteps(lesson, pool, rng = Math.random) {
     }
   }
 
+  for (const item of shuffle(items, rng).filter((it) => wordCount(it) >= 2).slice(0, 2)) {
+    steps.push({ kind: 'speak', item });
+  }
+
   lesson.dialog.forEach((turn, i) => {
     if (turn.who !== 'me') return;
     steps.push({
@@ -212,4 +220,125 @@ export function buildReviewSteps(items, srs, pool, rng = Math.random) {
     if (box === 2 && wordCount(item) >= 2) return buildStep(item, [], pool, rng);
     return pickStep(rng() < 0.5 ? 'listen' : 'pickEn', item, [], pool, rng);
   });
+}
+
+// ---------- Тест на пропуск этапа ----------
+
+export const PASS_PERCENT = 85;
+export const EXAM_SIZE = 20;
+
+export function neededToPass(total) {
+  return Math.ceil((total * PASS_PERCENT) / 100);
+}
+
+// Вопросы равномерно по типам и без подсказок: только то, что человек уже должен знать.
+export function buildExamSteps(items, pool, rng = Math.random, size = EXAM_SIZE) {
+  const kinds = ['pickEn', 'listen', 'build', 'pickRu', 'type'];
+  return shuffle(items, rng).slice(0, size).map((item, i) => {
+    const kind = kinds[i % kinds.length];
+    if (kind === 'type') return typeStep(item, pool);
+    if (kind === 'build') {
+      return wordCount(item) >= 2 ? buildStep(item, [], pool, rng) : typeStep(item, pool);
+    }
+    return pickStep(kind, item, items, pool, rng);
+  });
+}
+
+// ---------- Блиц ----------
+
+export const BLITZ_SECONDS = 60;
+
+export function buildBlitzStep(items, pool, rng = Math.random) {
+  const item = items[Math.floor(rng() * items.length)];
+  return pickStep(rng() < 0.5 ? 'pickRu' : 'pickEn', item, items, pool, rng);
+}
+
+// ---------- Слова и уровни языка ----------
+
+export function countWords(items) {
+  const words = new Set();
+  for (const item of items) {
+    for (const word of normalize(item.en).split(' ')) {
+      if (/^[a-z']+$/.test(word)) words.add(word);
+    }
+  }
+  return words.size;
+}
+
+// Примерные ориентиры. Слова — распространённая оценка словарного запаса для CEFR,
+// этапы и блиц — наша прикидка по этому курсу, а не официальный экзамен.
+export const BENCHMARKS = [
+  { id: 'A1', words: 500, units: 2, blitz: 15 },
+  { id: 'A2', words: 1000, units: 5, blitz: 25 },
+  { id: 'B1', words: 2000, units: 6, blitz: 35 },
+];
+
+// ---------- Грамматика ----------
+
+// Сначала правило, потом выбор слова, а последние задания нужно напечатать.
+export function buildGrammarSteps(topic, rng = Math.random) {
+  const tasks = shuffle(topic.tasks, rng);
+  const typedFrom = tasks.length - 3;
+  return [
+    { kind: 'rule', title: topic.title, text: topic.rule, rows: topic.rows },
+    ...tasks.map((task, i) => ({
+      kind: 'gap',
+      item: { en: task.text.replace('___', task.answer), ru: task.ru, pron: '' },
+      text: task.text,
+      answer: task.answer,
+      why: task.why,
+      options: i < typedFrom ? shuffle([task.answer, ...task.wrong], rng) : null,
+    })),
+  ];
+}
+
+// ---------- Пары ----------
+
+export function buildPairs(items, count, rng = Math.random) {
+  const seen = new Set();
+  const chosen = [];
+  for (const item of shuffle(items.filter((it) => wordCount(it) <= 3), rng)) {
+    if (chosen.length === count) break;
+    if (seen.has(item.ru) || seen.has(item.en)) continue;
+    seen.add(item.ru);
+    seen.add(item.en);
+    chosen.push(item);
+  }
+  return shuffle(chosen.flatMap((item, pair) => [
+    { pair, text: item.en, lang: 'en' },
+    { pair, text: item.ru, lang: 'ru' },
+  ]), rng);
+}
+
+// ---------- Статистика ----------
+
+// Недели месяца с понедельника: номера дней и null в пустых клетках.
+export function monthWeeks(year, month) {
+  const first = Date.UTC(year, month, 1) / 86400000;
+  const last = Date.UTC(year, month + 1, 0) / 86400000;
+  const cells = Array.from({ length: (first + 3) % 7 }, () => null);
+  for (let day = first; day <= last; day++) cells.push(day);
+  while (cells.length % 7) cells.push(null);
+  const weeks = [];
+  for (let i = 0; i < cells.length; i += 7) weeks.push(cells.slice(i, i + 7));
+  return weeks;
+}
+
+// Текущая серия не обрывается, пока сегодняшний день ещё не закончился.
+export function streaks(days, today = dayNumber()) {
+  const active = new Set(days);
+  let best = 0;
+  for (const day of active) {
+    if (active.has(day - 1)) continue;
+    let length = 1;
+    while (active.has(day + length)) length++;
+    best = Math.max(best, length);
+  }
+  let current = 0;
+  let cursor = active.has(today) ? today : today - 1;
+  while (active.has(cursor)) {
+    current++;
+    cursor--;
+  }
+  return { current, best };
 }
